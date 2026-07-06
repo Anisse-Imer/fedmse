@@ -1,0 +1,75 @@
+{
+    "data_path": "../Data/N-BaIoT/noniid-10-Client_Data",
+    "devices_list": [
+        {
+            "id": 1,
+            "name": "NBa-Scen2-Client-1",
+            "normal_data_path": "Client-1/normal",
+            "abnormal_data_path": "Client-1/abnormal",
+            "test_normal_data_path": "Client-1/test_normal"
+        },
+         {
+            "id": 2,
+            "name": "NBa-Scen2-Client-2",
+            "normal_data_path": "Client-2/normal",
+            "abnormal_data_path": "Client-2/abnormal",
+            "test_normal_data_path": "Client-2/test_normal"
+        },
+        {
+            "id": 3,
+            "name": "NBa-Scen2-Client-3",
+            "normal_data_path": "Client-3/normal",
+            "abnormal_data_path": "Client-3/abnormal",
+            "test_normal_data_path": "Client-3/test_normal"
+        },
+        {
+            "id": 4,
+            "name": "NBa-Scen2-Client-4",
+            "normal_data_path": "Client-4/normal",
+            "abnormal_data_path": "Client-4/abnormal",
+            "test_normal_data_path": "Client-4/test_normal"
+        },
+        {
+            "id": 5,
+            "name": "NBa-Scen2-Client-5",
+            "normal_data_path": "Client-5/normal",
+            "abnormal_data_path": "Client-5/abnormal",
+            "test_normal_data_path": "Client-5/test_normal"
+        },
+        {
+            "id": 6,
+            "name": "NBa-Scen2-Client-6",
+            "normal_data_path": "Client-6/normal",
+            "abnormal_data_path": "Client-6/abnormal",
+            "test_normal_data_path": "Client-6/test_normal"
+        },
+        {
+            "id": 7,
+            "name": "NBa-Scen2-Client-7",
+            "normal_data_path": "Client-7/normal",
+            "abnormal_data_path": "Client-7/abnormal",
+            "test_normal_data_path": "Client-7/test_normal"
+        },
+        {
+            "id": 8,
+            "name": "NBa-Scen2-Client-8",
+            "normal_data_path": "Client-8/normal",
+            "abnormal_data_path": "Client-8/abnormal",
+            "test_normal_data_path": "Client-8/test_normal"
+        },
+        {
+            "id": 9,
+            "name": "NBa-Scen2-Client-9",
+            "normal_data_path": "Client-9/normal",
+            "abnormal_data_path": "Client-9/abnormal",
+            "test_normal_data_path": "Client-9/test_normal"
+        },
+        {
+            "id": 10,
+            "name": "NBa-Scen2-Client-10",
+            "normal_data_path": "Client-10/normal",
+            "abnormal_data_path": "Client-10/abnormal",
+            "test_normal_data_path": "Client-10/test_normal"
+        }
+    ]
+}
