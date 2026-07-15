@@ -1,0 +1,8 @@
+# Local data files (raw data & models)
+*.csv
+*.cpt
+*.pkl
+src/Checkpoint
+
+# Python cache
+*.pyc

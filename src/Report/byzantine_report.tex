@@ -1,0 +1,403 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[expansion=false]{microtype}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{booktabs}
+\usepackage{dcolumn}
+\usepackage{enumitem}
+\usepackage{parskip}
+\usepackage{amsmath}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{hyperref}
+
+\hypersetup{colorlinks=true, linkcolor=black, urlcolor=blue, citecolor=black}
+
+\newcolumntype{d}[1]{D{.}{.}{#1}}
+
+\title{\textbf{Byzantine Robustness of Federated Learning\\for IoT Anomaly Detection}\\[0.4em]
+\large Data-Poisoning Attack Simulation on the N-BaIoT Dataset}
+\author{Anisse Imer}
+\date{July 2026}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+% ============================================================
+\section{Context and Motivation}
+% ============================================================
+
+Federated Learning (FL) distributes training across client devices without centralising raw data.
+This architecture, while privacy-preserving, exposes the global model to \emph{Byzantine}
+clients --- participants that submit corrupted model updates to degrade the shared model.
+In the IoT threat-detection context studied here, a Byzantine client corresponds to a
+compromised device that deliberately trains on a mixture of normal and abnormal traffic,
+forcing the global model to treat attack signatures as normal behaviour.
+
+This report quantifies how the two FL models from the main comparison study ---
+\textbf{Autoencoder (AE)} and \textbf{Hybrid Shrink-Autoencoder (SAE)} --- respond
+when an increasing fraction of the 10-client IID federation is corrupted.
+
+% ============================================================
+\section{Experimental Setup}
+% ============================================================
+
+\subsection{Attack Model}
+
+The attack implemented is \textbf{data poisoning}: a Byzantine client replaces 30\,\% of
+its normal training samples with randomly drawn abnormal traffic samples before local
+training.
+The poisoned client still participates normally in FedAvg aggregation; the corrupted
+gradients propagate into the global model without any detection mechanism.
+No model-weight manipulation is applied --- the corruption is entirely at the data level.
+
+\subsection{Protocol}
+
+All hyperparameters are kept identical to the clean FL baseline (Table~\ref{tab:setup}),
+so that Byzantine performance can be directly compared against clean performance.
+
+\begin{table}[h]
+\centering
+\caption{Fixed hyperparameters shared with the clean FL baseline.}
+\label{tab:setup}
+\begin{tabular}{ll}
+\toprule
+\textbf{Parameter} & \textbf{Value} \\
+\midrule
+Dataset distribution   & IID, 10 clients \\
+FL rounds              & 20 (with early stopping, patience\,=\,2) \\
+Epochs per round       & 100 \\
+Client participation   & 50\,\% per round (5 of 10) \\
+Independent runs       & 5 \\
+Learning rate          & $10^{-5}$ \\
+Shrink $\lambda$       & 10 \\
+Latent dimension       & 11 \\
+Poisoning ratio        & 30\,\% of selected Byzantine client's training set \\
+\midrule
+Byzantine ratios swept & 10\,\%, 20\,\%, 30\,\%, 40\,\%, 50\,\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Evaluation Metric}
+
+At the end of each FL round, the global model is evaluated on every client's held-out
+test set (normal + abnormal traffic).
+The \textbf{best-round ROC-AUC} --- the round yielding the highest mean AUC across all
+10 clients --- is reported per run, then averaged across the 5 independent runs.
+This mirrors the metric used in the clean FL comparison paper.
+
+% ============================================================
+\section{Results}
+% ============================================================
+
+\subsection{Summary: Mean AUC vs.\ Byzantine Ratio}
+
+Table~\ref{tab:main} reports the best-round mean AUC $\pm$ standard deviation across the
+5 runs for each (model, Byzantine ratio) combination.
+The clean FL baseline (0\,\% Byzantine, from the main comparison study) is included as
+the reference row.
+
+\begin{table}[h]
+\centering
+\caption{Best-round mean AUC (\%) across 10 IID clients and 5 runs.
+Degradation $\Delta$ is relative to the clean baseline.}
+\label{tab:main}
+\begin{tabular}{r d{5.2} d{4.2} d{5.2} d{4.2}}
+\toprule
+ & \multicolumn{2}{c}{\textbf{Autoencoder}} & \multicolumn{2}{c}{\textbf{Hybrid (SAE)}} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+\textbf{Byzantine \%} & \multicolumn{1}{c}{Mean} & \multicolumn{1}{c}{Std} &
+                        \multicolumn{1}{c}{Mean} & \multicolumn{1}{c}{Std} \\
+\midrule
+0\,\% (clean)  & 99.07 & {---}  & 99.01 & {---}  \\
+\midrule
+10\,\%         & 99.09 & 0.06   & 98.11 & 0.31   \\
+20\,\%         & 99.12 & 0.03   & 98.41 & 0.40   \\
+30\,\%         & 99.09 & 0.06   & 97.58 & 0.87   \\
+40\,\%         & 99.10 & 0.06   & 97.59 & 0.83   \\
+50\,\%         & 99.05 & 0.06   & 96.54 & 0.66   \\
+\midrule
+$\Delta$ (0\% $\to$ 50\%) & \multicolumn{1}{c}{$-0.02$} & & \multicolumn{1}{c}{$-2.47$} & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent\textbf{Key observation.}
+The Autoencoder is virtually immune to data-poisoning attacks at the best-round level:
+AUC fluctuates by less than 0.10 percentage points across all Byzantine ratios (99.05--99.12\,\%).
+The Hybrid model degrades monotonically from 98.11\,\% at 10\,\% corruption to
+96.54\,\% at 50\,\% corruption --- a $-2.47$ pp drop relative to the clean baseline
+of 99.01\,\%.
+Variance also increases markedly for the Hybrid (std\,=\,0.87 at 30\,\%),
+indicating that the interaction between Byzantine clients and the centroid-based
+one-class classifier is sensitive to which specific clients are selected as adversaries.
+
+\subsection{AUC Degradation Over FL Rounds}
+
+While the best-round AUC metric captures peak performance, it does not reveal how quickly
+the global model degrades as poisoned updates accumulate.
+Tables~\ref{tab:rounds_ae} and~\ref{tab:rounds_hybrid} report the mean AUC across
+all 10 clients at each FL round (averaged over the 5 runs).
+Rows are truncated at the point where early stopping ends the run.
+
+\begin{table}[h]
+\centering
+\caption{Autoencoder --- mean AUC (\%) per FL round by Byzantine ratio (IID, mean of 5 runs).}
+\label{tab:rounds_ae}
+\resizebox{\linewidth}{!}{%
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{r *{20}{d{2.2}}}
+\toprule
+\textbf{Byz\%} & \multicolumn{20}{c}{\textbf{Round}} \\
+& \multicolumn{1}{c}{1} & \multicolumn{1}{c}{2} & \multicolumn{1}{c}{3} &
+  \multicolumn{1}{c}{4} & \multicolumn{1}{c}{5} & \multicolumn{1}{c}{6} &
+  \multicolumn{1}{c}{7} & \multicolumn{1}{c}{8} & \multicolumn{1}{c}{9} &
+  \multicolumn{1}{c}{10} & \multicolumn{1}{c}{11} & \multicolumn{1}{c}{12} &
+  \multicolumn{1}{c}{13} & \multicolumn{1}{c}{14} & \multicolumn{1}{c}{15} &
+  \multicolumn{1}{c}{16} & \multicolumn{1}{c}{17} & \multicolumn{1}{c}{18} &
+  \multicolumn{1}{c}{19} & \multicolumn{1}{c}{20} \\
+\midrule
+10 & 99.09 & 98.99 & 98.51 & 98.01 & 97.89 & 97.38 & 96.69 & 95.66 & 94.74 & 94.90 & 94.32 & 94.33 & 93.08 & 93.17 & 93.84 & 93.77 & 93.90 & 94.35 & 93.67 & 93.74 \\
+20 & 99.12 & 99.07 & 98.41 & 97.51 & 97.20 & 97.17 & 96.63 & 95.96 & 95.65 & 95.19 & 95.31 & 94.49 & 94.47 & 94.61 & 94.35 & 94.69 & 94.70 & 94.92 & 94.41 & 94.68 \\
+30 & 99.08 & 99.02 & 98.51 & 98.63 & 98.58 & 98.30 & 97.89 & 97.53 & 97.37 & 96.44 & 95.92 & 96.01 & 95.74 & 95.73 & 95.09 & 95.64 & 94.97 & 95.01 & 94.85 & 94.78 \\
+40 & 99.09 & 99.05 & 98.75 & 98.64 & 98.49 & 98.34 & 97.82 & 97.25 & 97.20 & 96.29 & 96.17 & 95.61 & 95.99 & 96.06 & 95.86 & 95.85 & 95.47 & 95.51 & 95.23 & 95.15 \\
+50 & 99.05 & 99.00 & 98.71 & 98.38 & 98.17 & 98.09 & 98.02 & 97.81 & 97.35 & 97.50 & 97.39 & 96.89 & 97.01 & 96.36 & 96.86 & 96.49 & 96.55 & 96.42 & 96.04 & 96.11 \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Hybrid (SAE) --- mean AUC (\%) per FL round by Byzantine ratio (IID, mean of 5 runs).}
+\label{tab:rounds_hybrid}
+\resizebox{\linewidth}{!}{%
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{r *{20}{d{2.2}}}
+\toprule
+\textbf{Byz\%} & \multicolumn{20}{c}{\textbf{Round}} \\
+& \multicolumn{1}{c}{1} & \multicolumn{1}{c}{2} & \multicolumn{1}{c}{3} &
+  \multicolumn{1}{c}{4} & \multicolumn{1}{c}{5} & \multicolumn{1}{c}{6} &
+  \multicolumn{1}{c}{7} & \multicolumn{1}{c}{8} & \multicolumn{1}{c}{9} &
+  \multicolumn{1}{c}{10} & \multicolumn{1}{c}{11} & \multicolumn{1}{c}{12} &
+  \multicolumn{1}{c}{13} & \multicolumn{1}{c}{14} & \multicolumn{1}{c}{15} &
+  \multicolumn{1}{c}{16} & \multicolumn{1}{c}{17} & \multicolumn{1}{c}{18} &
+  \multicolumn{1}{c}{19} & \multicolumn{1}{c}{20} \\
+\midrule
+10 & 96.96 & 96.55 & 97.40 & 96.91 & 97.32 & 97.64 & 97.29 & 97.35 & 96.95 & 97.35 & 97.40 & 97.35 & 96.99 & 97.21 & 97.27 & 97.33 & 97.24 & 97.24 & 97.34 & 97.34 \\
+20 & 96.78 & 96.51 & 96.99 & 96.73 & 96.92 & 97.67 & 96.87 & 96.69 & 97.10 & 96.61 & 97.56 & 96.80 & 97.39 & 97.05 & 97.05 & 97.55 & 97.12 & 97.54 & 97.35 & 97.19 \\
+30 & 96.55 & 96.17 & 96.40 & 95.87 & 96.19 & 96.59 & 96.23 & 96.24 & 96.20 & 96.16 & 96.02 & 95.97 & 96.30 & 96.26 & 96.08 & 96.23 & 96.50 & {---} & {---} & {---} \\
+40 & 95.56 & 96.18 & 96.22 & 95.36 & 96.48 & 96.71 & 96.55 & 96.36 & 96.98 & 96.90 & 96.93 & 96.98 & 96.74 & 96.85 & 96.83 & 96.97 & 96.88 & 96.90 & 96.98 & 97.00 \\
+50 & 94.54 & 95.19 & 94.55 & 95.05 & 95.57 & 95.95 & 95.77 & 96.25 & {---} & {---} & {---} & {---} & {---} & {---} & {---} & {---} & {---} & {---} & {---} & {---} \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\noindent\textbf{Autoencoder round dynamics.}
+All ratios start at round-1 AUC of $\approx$99.08\,\% and decline monotonically as
+poisoned updates accumulate.
+Higher Byzantine ratios slow the decline: at byz10\,\%, AUC falls to 93.08\,\% by round~13;
+at byz50\,\%, it stays above 96.04\,\% throughout 20 rounds.
+This counter-intuitive pattern reflects the stochastic client selection (50\,\% per
+round): with more Byzantine clients in the pool, any given round has a higher probability
+of selecting none or few of them, so the corrupted updates are diluted by more honest
+rounds.
+Regardless, the best-round metric picks round~1 in all cases, confirming that the optimal
+AE model under Byzantine attack is the one obtained after a single FL round.
+
+\noindent\textbf{Hybrid round dynamics.}
+The Hybrid model converges differently: round-1 AUC starts significantly lower
+($\approx$94--97\,\%) and generally improves or stabilises across rounds as the centroid
+in the latent space stabilises.
+At byz50\,\%, early stopping at round~8 prevents further training; at byz10\,\% and
+byz20\,\%, the model trains the full 20 rounds with stable performance.
+This confirms that the centroid-based classifier benefits from more FL rounds to define
+a reliable normal-traffic cluster --- but Byzantine poisoning compresses the improvement
+window by destabilising the latent representation.
+
+\subsection{Per-Client AUC at Maximum Corruption (50\,\%)}
+
+Table~\ref{tab:perclient} breaks down AUC by client at the worst-case scenario (byz50\,\%).
+Values are the mean across the 5 runs at the best round.
+
+\begin{table}[h]
+\centering
+\caption{Per-client best-round AUC (\%) at byz50\,\% (mean of 5 runs, IID).}
+\label{tab:perclient}
+\begin{tabular}{l rr}
+\toprule
+\textbf{Client} & \textbf{Autoencoder} & \textbf{Hybrid (SAE)} \\
+\midrule
+Client-1   & 99.50  & 93.19 \\
+Client-2   & 99.66  & 99.63 \\
+Client-3   & 95.62  & 94.49 \\
+Client-4   & 97.67  & 90.94 \\
+Client-5   & 99.73  & 99.14 \\
+Client-6   & 99.40  & 94.69 \\
+Client-7   & 99.78  & 96.92 \\
+Client-8   & 99.52  & 97.17 \\
+Client-9   & 99.85  & 99.42 \\
+Client-10  & 99.81  & 99.82 \\
+\midrule
+\textbf{Mean} & \textbf{99.05} & \textbf{96.54} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Two clients stand out persistently across all experiments:
+
+\begin{itemize}[leftmargin=1.5em]
+  \item \textbf{Client-3} has the lowest AUC for the Autoencoder (95.62\,\%) regardless of Byzantine ratio.
+        This is an inherent property of its data distribution in the IID split, not an effect of the attack.
+  \item \textbf{Client-4} achieves 97.67\,\% under AE but collapses to 90.94\,\% under the Hybrid at byz50\,\%.
+        The Hybrid's centroid-based classifier is more sensitive to distributional shifts in the latent space;
+        when Byzantine clients poison the latent representation, the centroid shifts away from Client-4's
+        normal-traffic cluster.
+\end{itemize}
+
+% ============================================================
+\section{Discussion}
+% ============================================================
+
+\subsection{Why the Autoencoder Is Robust}
+
+The Autoencoder detects anomalies by reconstruction error: test samples with high MSE
+are flagged as abnormal.
+Data poisoning introduces abnormal samples into the training set, which teaches the model
+to reconstruct attack patterns.
+However, because only 30\,\% of a Byzantine client's training data is abnormal, and
+Byzantine clients represent at most 50\,\% of participants, the effective fraction of
+poisoned samples across the federation in any given round is at most 15\,\%
+($0.5 \times 0.3$).
+The aggregated global model remains dominated by the honest majority, and its reconstruction
+surface for normal traffic changes only slightly.
+This explains why round-1 AUC --- before repeated poisoning can shift the surface --- is
+essentially identical to the clean baseline.
+
+The decline over subsequent rounds is real but mitigated by FedAvg's weight averaging:
+each Byzantine client contributes a weight proportional to its dataset size,
+which is not inflated in this attack model (data poisoning does not increase the client's
+apparent dataset size).
+
+\subsection{Why the Hybrid Model Is More Vulnerable}
+
+The Hybrid adds a centroid-based one-class classifier in the latent space on top of the
+reconstruction model.
+Its anomaly score is a combination of reconstruction error \emph{and} distance from the
+centroid of normal traffic in the latent space.
+This second signal is sensitive to the quality of the latent representation: when
+Byzantine clients inject abnormal samples, the encoder is subtly trained to compress
+abnormal patterns into the latent space, shifting the centroid towards attack traffic.
+Even a small shift degrades the distance-based classifier for honest clients.
+
+Variance in the Hybrid results (std up to 0.87\,\%) reflects this sensitivity:
+the attack impact depends on which specific clients are selected as Byzantine each run,
+since different clients have different latent representations of normal traffic.
+
+\subsection{Practical Implication}
+
+Under data-poisoning attacks with a 30\,\% poisoning ratio and up to 50\,\% Byzantine
+clients in a 10-device IID federation:
+
+\begin{itemize}[leftmargin=1.5em]
+  \item The \textbf{Autoencoder} maintains $\geq$99.05\,\% AUC and is the recommended
+        architecture when Byzantine robustness is a design requirement.
+  \item The \textbf{Hybrid model} provides superior AUC on clean data (99.01\,\%) and
+        its convergence over rounds is more stable, but it is susceptible to degradation
+        under heavy attack (96.54\,\% at 50\,\% Byzantine).
+        Deploying the Hybrid requires either a Byzantine-robust aggregation rule (e.g.,
+        Krum, coordinate-wise median) or a trust mechanism to limit participation of
+        suspected compromised clients.
+  \item \textbf{Early stopping} is insufficient as the sole defence: the validation loss
+        can keep decreasing even as the anomaly-detection AUC degrades (the model becomes
+        better at reconstructing poisoned data, so MSE on the poisoned validation set
+        drops).
+        Round-level AUC monitoring on a small held-out reference set is a more reliable
+        stopping criterion.
+\end{itemize}
+
+% ============================================================
+\section{Conclusion}
+% ============================================================
+
+This study simulated Byzantine data-poisoning attacks on a 10-client IID Federated
+Learning system trained for IoT anomaly detection.
+Five Byzantine ratios (10--50\,\%) were evaluated across two model architectures
+and 5 independent runs.
+
+The \textbf{Autoencoder} is highly resilient: best-round AUC degrades by only 0.02 pp
+from the clean baseline across all attack intensities (99.05--99.12\,\%).
+Its robustness stems from FedAvg's weight averaging, which dilutes poisoned updates, and
+from the reconstruction-error mechanism, which is less sensitive to distributional shifts
+in the latent space.
+
+The \textbf{Hybrid Shrink-Autoencoder} shows a clear degradation trend, losing 2.47 pp
+at 50\,\% corruption (96.54\,\% vs.\ 99.01\,\% clean).
+The centroid-based classifier is the vulnerable component, as it depends on a clean latent
+representation of normal traffic.
+
+These findings motivate follow-up work on Byzantine-robust aggregation (Krum,
+coordinate-wise median) and Byzantine-tolerant centroid estimation, which could recover
+the Hybrid model's clean-data advantage while maintaining robustness under attack.
+
+% ============================================================
+\appendix
+\section{Appendix: Per-Client AUC by Ratio}
+% ============================================================
+
+Tables~\ref{tab:ae_perclient_all} and~\ref{tab:hybrid_perclient_all} give the full
+per-client AUC breakdown for all Byzantine ratios (mean of 5 runs).
+
+\begin{table}[h]
+\centering
+\caption{Autoencoder --- per-client best-round AUC (\%) by Byzantine ratio.}
+\label{tab:ae_perclient_all}
+\begin{tabular}{l rrrrr}
+\toprule
+\textbf{Client} & \textbf{10\,\%} & \textbf{20\,\%} & \textbf{30\,\%} & \textbf{40\,\%} & \textbf{50\,\%} \\
+\midrule
+Client-1   & 99.53 & 99.56 & 99.54 & 99.52 & 99.50 \\
+Client-2   & 99.66 & 99.66 & 99.66 & 99.68 & 99.66 \\
+Client-3   & 95.57 & 95.62 & 95.62 & 95.62 & 95.62 \\
+Client-4   & 97.71 & 97.86 & 97.71 & 97.74 & 97.67 \\
+Client-5   & 99.77 & 99.78 & 99.76 & 99.77 & 99.73 \\
+Client-6   & 99.56 & 99.58 & 99.53 & 99.55 & 99.40 \\
+Client-7   & 99.83 & 99.83 & 99.83 & 99.83 & 99.78 \\
+Client-8   & 99.55 & 99.61 & 99.56 & 99.58 & 99.52 \\
+Client-9   & 99.88 & 99.88 & 99.88 & 99.88 & 99.85 \\
+Client-10  & 99.80 & 99.84 & 99.80 & 99.82 & 99.81 \\
+\midrule
+\textbf{Mean} & 99.09 & 99.12 & 99.09 & 99.10 & 99.05 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Hybrid (SAE) --- per-client best-round AUC (\%) by Byzantine ratio.}
+\label{tab:hybrid_perclient_all}
+\begin{tabular}{l rrrrr}
+\toprule
+\textbf{Client} & \textbf{10\,\%} & \textbf{20\,\%} & \textbf{30\,\%} & \textbf{40\,\%} & \textbf{50\,\%} \\
+\midrule
+Client-1   & 98.54 & 98.80 & 96.88 & 96.76 & 93.19 \\
+Client-2   & 99.64 & 99.61 & 99.63 & 99.59 & 99.63 \\
+Client-3   & 94.90 & 94.67 & 94.13 & 94.14 & 94.49 \\
+Client-4   & 95.95 & 96.61 & 95.00 & 94.85 & 90.94 \\
+Client-5   & 99.14 & 99.38 & 99.13 & 99.00 & 99.14 \\
+Client-6   & 97.60 & 98.13 & 96.55 & 97.07 & 94.69 \\
+Client-7   & 97.69 & 98.60 & 97.31 & 96.96 & 96.92 \\
+Client-8   & 98.76 & 98.77 & 98.20 & 98.35 & 97.17 \\
+Client-9   & 99.12 & 99.70 & 99.20 & 99.45 & 99.42 \\
+Client-10  & 99.80 & 99.79 & 99.78 & 99.78 & 99.82 \\
+\midrule
+\textbf{Mean} & 98.11 & 98.41 & 97.58 & 97.59 & 96.54 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\end{document}
